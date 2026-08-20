@@ -1,5 +1,6 @@
 package com.example.widgetcatchingup.data.updater
 
+import com.example.widgetcatchingup.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -10,24 +11,25 @@ data class UpdateInfo(
     val hasUpdate: Boolean,
     val latestVersion: String,
     val downloadUrl: String,
-    val releaseNotes: String
+    val releaseNotes: String,
+    val checkedSuccessfully: Boolean = true
 )
 
 object GitHubUpdateChecker {
 
     private const val REPO_OWNER = "nicosuar22"
     private const val REPO_NAME = "widget-catching-up"
-    private const val CURRENT_VERSION = "v1.0.0"
 
     suspend fun checkLatestRelease(): UpdateInfo = withContext(Dispatchers.IO) {
+        val currentVersion = BuildConfig.VERSION_NAME
         try {
             val url = URL("https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/latest")
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             connection.setRequestProperty("Accept", "application/vnd.github+json")
             connection.setRequestProperty("User-Agent", "WidgetCatchingUpApp")
-            connection.connectTimeout = 5000
-            connection.readTimeout = 5000
+            connection.connectTimeout = 8000
+            connection.readTimeout = 8000
 
             if (connection.responseCode == 200) {
                 val responseText = connection.inputStream.bufferedReader().use { it.readText() }
@@ -50,12 +52,13 @@ object GitHubUpdateChecker {
                     }
                 }
 
-                val isNewer = isVersionNewer(tagName, CURRENT_VERSION)
+                val isNewer = isVersionNewer(tagName, currentVersion)
                 return@withContext UpdateInfo(
                     hasUpdate = isNewer,
                     latestVersion = tagName,
                     downloadUrl = apkDownloadUrl,
-                    releaseNotes = body
+                    releaseNotes = body,
+                    checkedSuccessfully = true
                 )
             }
         } catch (e: Exception) {
@@ -64,16 +67,35 @@ object GitHubUpdateChecker {
 
         return@withContext UpdateInfo(
             hasUpdate = false,
-            latestVersion = CURRENT_VERSION,
+            latestVersion = currentVersion,
             downloadUrl = "",
-            releaseNotes = ""
+            releaseNotes = "",
+            checkedSuccessfully = false
         )
     }
 
     private fun isVersionNewer(latest: String, current: String): Boolean {
-        if (latest.isBlank() || latest == current) return false
-        val cleanLatest = latest.removePrefix("v").removePrefix("V")
-        val cleanCurrent = current.removePrefix("v").removePrefix("V")
-        return cleanLatest != cleanCurrent
+        if (latest.isBlank()) return false
+        val cleanLatest = latest.removePrefix("v").removePrefix("V").trim()
+        val cleanCurrent = current.removePrefix("v").removePrefix("V").trim()
+        
+        if (cleanLatest == cleanCurrent) return false
+
+        try {
+            val latestParts = cleanLatest.split(".").map { it.toIntOrNull() ?: 0 }
+            val currentParts = cleanCurrent.split(".").map { it.toIntOrNull() ?: 0 }
+            val maxLen = maxOf(latestParts.size, currentParts.size)
+
+            for (i in 0 until maxLen) {
+                val l = latestParts.getOrElse(i) { 0 }
+                val c = currentParts.getOrElse(i) { 0 }
+                if (l > c) return true
+                if (l < c) return false
+            }
+        } catch (e: Exception) {
+            return cleanLatest != cleanCurrent
+        }
+
+        return false
     }
 }

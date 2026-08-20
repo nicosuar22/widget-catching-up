@@ -6,8 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -28,11 +26,9 @@ import androidx.compose.ui.unit.sp
 import com.example.widgetcatchingup.data.local.Goal
 import com.example.widgetcatchingup.data.local.GoalLog
 import com.example.widgetcatchingup.ui.viewmodel.GoalViewModel
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
-import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,6 +37,7 @@ fun GoalManagementScreen(viewModel: GoalViewModel) {
     val goals by viewModel.goals.collectAsState()
     val logs by viewModel.logs.collectAsState()
     val updateInfo by viewModel.updateInfo.collectAsState()
+    val isCheckingUpdates by viewModel.isCheckingUpdates.collectAsState()
     val selectedNavIndex by viewModel.selectedNavIndex.collectAsState()
     val context = LocalContext.current
 
@@ -49,6 +46,47 @@ fun GoalManagementScreen(viewModel: GoalViewModel) {
 
     Scaffold(
         containerColor = Color(0xFFF5F7FA),
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(
+                            text = "TU PROGRESO",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF8A94A6),
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            text = if (selectedNavIndex == 0) "Metas Semanales" else "Progreso por Meta",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E293B)
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { viewModel.checkForUpdates(isManual = true) }) {
+                        if (isCheckingUpdates) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = Color(0xFF0052CC)
+                            )
+                        } else {
+                            Icon(
+                                Icons.Default.CloudDownload,
+                                contentDescription = "Buscar actualizaciones",
+                                tint = Color(0xFF64748B)
+                            )
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
+                )
+            )
+        },
         bottomBar = {
             NavigationBar(
                 containerColor = Color.White,
@@ -193,24 +231,8 @@ private fun MetasTabContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 20.dp, vertical = 16.dp)
+            .padding(horizontal = 20.dp, vertical = 8.dp)
     ) {
-        Text(
-            text = "TU PROGRESO",
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF8A94A6),
-            letterSpacing = 1.sp
-        )
-        Text(
-            text = "Metas Semanales",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF1E293B)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
         if (goals.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -385,7 +407,7 @@ private fun GoalCardApp(
             }
 
             Spacer(modifier = Modifier.height(14.dp))
-            Divider(color = Color(0xFFF1F5F9), thickness = 1.dp)
+            HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
             Spacer(modifier = Modifier.height(10.dp))
 
             // Pie de la tarjeta: "Racha Semanal" + "🔥 5"
@@ -423,24 +445,8 @@ private fun ProgresoTabContent(viewModel: GoalViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 20.dp, vertical = 16.dp)
+            .padding(horizontal = 20.dp, vertical = 8.dp)
     ) {
-        Text(
-            text = "ESTADÍSTICAS",
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF8A94A6),
-            letterSpacing = 1.sp
-        )
-        Text(
-            text = "Progreso por Meta",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF1E293B)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
         if (goals.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -485,7 +491,7 @@ private fun ProgresoTabContent(viewModel: GoalViewModel) {
 
         selectedGoal?.let { goal ->
             // Selector de mes (< Agosto 2026 >)
-            val monthTitle = selectedYearMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale("es", "ES"))).capitalize(Locale.getDefault())
+            val monthTitle = selectedYearMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale("es", "ES"))).replaceFirstChar { it.uppercase() }
 
             Row(
                 modifier = Modifier

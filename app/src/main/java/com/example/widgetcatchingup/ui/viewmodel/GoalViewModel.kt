@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -11,7 +12,6 @@ import com.example.widgetcatchingup.data.local.AppDatabase
 import com.example.widgetcatchingup.data.local.Goal
 import com.example.widgetcatchingup.data.local.GoalLog
 import com.example.widgetcatchingup.data.repository.GoalRepository
-import com.example.widgetcatchingup.data.repository.SingleGoalMonthlyStats
 import com.example.widgetcatchingup.data.updater.GitHubUpdateChecker
 import com.example.widgetcatchingup.data.updater.UpdateInfo
 import com.example.widgetcatchingup.widget.GoalWidget
@@ -71,8 +71,11 @@ class GoalViewModel(application: Application) : AndroidViewModel(application) {
     private val _updateInfo = MutableStateFlow<UpdateInfo?>(null)
     val updateInfo: StateFlow<UpdateInfo?> = _updateInfo.asStateFlow()
 
+    private val _isCheckingUpdates = MutableStateFlow(false)
+    val isCheckingUpdates: StateFlow<Boolean> = _isCheckingUpdates.asStateFlow()
+
     init {
-        checkForUpdates()
+        checkForUpdates(isManual = false)
         // Seleccionar automáticamente la primera meta si existe
         viewModelScope.launch {
             goals.collect { list ->
@@ -99,11 +102,21 @@ class GoalViewModel(application: Application) : AndroidViewModel(application) {
         _selectedYearMonth.value = _selectedYearMonth.value.plusMonths(1)
     }
 
-    fun checkForUpdates() {
+    fun checkForUpdates(isManual: Boolean = false) {
         viewModelScope.launch {
+            _isCheckingUpdates.value = true
             val info = GitHubUpdateChecker.checkLatestRelease()
+            _isCheckingUpdates.value = false
+
             if (info.hasUpdate) {
                 _updateInfo.value = info
+            } else if (isManual) {
+                val msg = if (info.checkedSuccessfully) {
+                    "¡Ya tienes la versión más reciente instalada (${info.latestVersion})!"
+                } else {
+                    "No se pudo conectar con GitHub. Revisa tu conexión a internet."
+                }
+                Toast.makeText(getApplication(), msg, Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -121,6 +134,7 @@ class GoalViewModel(application: Application) : AndroidViewModel(application) {
             context.startActivity(intent)
         } catch (e: Exception) {
             e.printStackTrace()
+            Toast.makeText(context, "Error al abrir la descarga: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
         }
     }
 
