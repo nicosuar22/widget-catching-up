@@ -6,7 +6,10 @@ import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "goal_logs",
-    indices = [Index(value = ["goalId", "date"], unique = true)]
+    indices = [
+        Index(value = ["goalId", "date"], unique = true),
+        Index(value = ["date"])
+    ]
 )
 data class GoalLog(
     @PrimaryKey(autoGenerate = true)

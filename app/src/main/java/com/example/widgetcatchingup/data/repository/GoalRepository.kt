@@ -11,7 +11,9 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 
 data class MonthlyStreakStats(
+    val bestGoalTitle: String,
     val bestStreak: Int,
+    val worstGoalTitle: String,
     val worstStreak: Int
 )
 
@@ -96,20 +98,31 @@ class GoalRepository(private val goalDao: GoalDao) {
         val goals = goalDao.getAllGoalsDirect()
 
         if (goals.isEmpty()) {
-            return MonthlyStreakStats(bestStreak = 0, worstStreak = 0)
+            return MonthlyStreakStats(
+                bestGoalTitle = "-",
+                bestStreak = 0,
+                worstGoalTitle = "-",
+                worstStreak = 0
+            )
         }
 
         val completedLogs = goalDao.getCompletedLogsForMonth(monthPrefix)
         
         // Conteo de días completados en el mes por cada meta
-        val countsByGoal = goals.associate { goal ->
-            goal.id to completedLogs.count { it.goalId == goal.id }
+        val countsByGoal = goals.map { goal ->
+            val count = completedLogs.count { it.goalId == goal.id }
+            goal to count
         }
 
-        val best = countsByGoal.values.maxOrNull() ?: 0
-        val worst = countsByGoal.values.minOrNull() ?: 0
+        val best = countsByGoal.maxByOrNull { it.second }
+        val worst = countsByGoal.minByOrNull { it.second }
 
-        return MonthlyStreakStats(bestStreak = best, worstStreak = worst)
+        return MonthlyStreakStats(
+            bestGoalTitle = best?.first?.title ?: "-",
+            bestStreak = best?.second ?: 0,
+            worstGoalTitle = worst?.first?.title ?: "-",
+            worstStreak = worst?.second ?: 0
+        )
     }
 
     fun calculateSingleGoalStats(

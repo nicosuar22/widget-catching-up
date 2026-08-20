@@ -36,6 +36,7 @@ import com.example.widgetcatchingup.data.local.AppDatabase
 import com.example.widgetcatchingup.data.local.Goal
 import com.example.widgetcatchingup.data.local.GoalLog
 import com.example.widgetcatchingup.data.repository.GoalRepository
+import com.example.widgetcatchingup.data.repository.MonthlyStreakStats
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
@@ -59,8 +60,7 @@ class GoalWidget : GlanceAppWidget() {
             WidgetContent(
                 goals = goals,
                 logs = logs,
-                bestStreak = stats.bestStreak,
-                worstStreak = stats.worstStreak,
+                stats = stats,
                 weekDates = weekDates
             )
         }
@@ -84,8 +84,7 @@ private val FireColor = ColorProvider(Color(0xFFFF9800))              // Fuego r
 private fun WidgetContent(
     goals: List<Goal>,
     logs: List<GoalLog>,
-    bestStreak: Int,
-    worstStreak: Int,
+    stats: MonthlyStreakStats,
     weekDates: List<LocalDate>
 ) {
     Column(
@@ -133,7 +132,7 @@ private fun WidgetContent(
 
         Spacer(modifier = GlanceModifier.height(8.dp))
 
-        // --- TARJETA RESUMEN TRANSLÚCIDA: RACHAS DEL MES ---
+        // --- TARJETA RESUMEN TRANSLÚCIDA: RACHAS DEL MES CON NOMBRE DE META ---
         Column(
             modifier = GlanceModifier
                 .fillMaxWidth()
@@ -146,44 +145,44 @@ private fun WidgetContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "🏆 MEJOR RACHA DEL MES",
+                    text = "🏆 MEJOR RACHA: ",
                     style = TextStyle(
                         color = TextSecondary,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+                Text(
+                    text = if (stats.bestGoalTitle != "-") "${stats.bestGoalTitle} (${stats.bestStreak} días)" else "${stats.bestStreak} días",
+                    style = TextStyle(
+                        color = TextPrimary,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
                     ),
                     modifier = GlanceModifier.defaultWeight()
                 )
-                Text(
-                    text = "$bestStreak días",
-                    style = TextStyle(
-                        color = TextPrimary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
             }
-            Spacer(modifier = GlanceModifier.height(3.dp))
+            Spacer(modifier = GlanceModifier.height(4.dp))
             Row(
                 modifier = GlanceModifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "📉 PEOR RACHA DEL MES",
+                    text = "📉 PEOR RACHA: ",
                     style = TextStyle(
                         color = TextSecondary,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
-                    ),
-                    modifier = GlanceModifier.defaultWeight()
+                    )
                 )
                 Text(
-                    text = "$worstStreak días",
+                    text = if (stats.worstGoalTitle != "-") "${stats.worstGoalTitle} (${stats.worstStreak} días)" else "${stats.worstStreak} días",
                     style = TextStyle(
                         color = TextPrimary,
-                        fontSize = 11.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
-                    )
+                    ),
+                    modifier = GlanceModifier.defaultWeight()
                 )
             }
         }
