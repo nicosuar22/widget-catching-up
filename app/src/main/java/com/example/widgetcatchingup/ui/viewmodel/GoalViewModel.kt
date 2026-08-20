@@ -11,21 +11,20 @@ import com.example.widgetcatchingup.data.local.AppDatabase
 import com.example.widgetcatchingup.data.local.Goal
 import com.example.widgetcatchingup.data.local.GoalLog
 import com.example.widgetcatchingup.data.repository.GoalRepository
+import com.example.widgetcatchingup.data.repository.SingleGoalMonthlyStats
 import com.example.widgetcatchingup.data.updater.GitHubUpdateChecker
 import com.example.widgetcatchingup.data.updater.UpdateInfo
 import com.example.widgetcatchingup.widget.GoalWidget
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.YearMonth
 
 class GoalViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = AppDatabase.getDatabase(application)
-    private val repository = GoalRepository(db.goalDao())
+    val repository = GoalRepository(db.goalDao())
 
     val goals: StateFlow<List<Goal>> = repository.allGoals.stateIn(
         scope = viewModelScope,
@@ -41,11 +40,63 @@ class GoalViewModel(application: Application) : AndroidViewModel(application) {
 
     val weekDates: List<LocalDate> = repository.getCurrentWeekDates()
 
+    // --- ESTADO NAVEGACIÓN Y PROGRESO MENSUAL ---
+    private val _selectedNavIndex = MutableStateFlow(0)
+    val selectedNavIndex: StateFlow<Int> = _selectedNavIndex.asStateFlow()
+
+    private val _selectedYearMonth = MutableStateFlow(YearMonth.now())
+    val selectedYearMonth: StateFlow<YearMonth> = _selectedYearMonth.asStateFlow()
+
+    private val _selectedGoalId = MutableStateFlow<Long?>(null)
+    val selectedGoalId: StateFlow<Long?> = _selectedGoalId.asStateFlow()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val monthlyLogsForSelectedGoal: StateFlow<List<GoalLog>> = combine(
+        _selectedGoalId,
+        _selectedYearMonth
+    ) { goalId, yearMonth ->
+        goalId to yearMonth
+    }.flatMapLatest { (goalId, yearMonth) ->
+        if (goalId != null) {
+            repository.getLogsForGoalAndMonth(goalId, yearMonth)
+        } else {
+            flowOf(emptyList())
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
     private val _updateInfo = MutableStateFlow<UpdateInfo?>(null)
     val updateInfo: StateFlow<UpdateInfo?> = _updateInfo.asStateFlow()
 
     init {
         checkForUpdates()
+        // Seleccionar automáticamente la primera meta si existe
+        viewModelScope.launch {
+            goals.collect { list ->
+                if (_selectedGoalId.value == null && list.isNotEmpty()) {
+                    _selectedGoalId.value = list.first().id
+                }
+            }
+        }
+    }
+
+    fun setSelectedNavIndex(index: Int) {
+        _selectedNavIndex.value = index
+    }
+
+    fun setSelectedGoalId(goalId: Long) {
+        _selectedGoalId.value = goalId
+    }
+
+    fun previousMonth() {
+        _selectedYearMonth.value = _selectedYearMonth.value.minusMonths(1)
+    }
+
+    fun nextMonth() {
+        _selectedYearMonth.value = _selectedYearMonth.value.plusMonths(1)
     }
 
     fun checkForUpdates() {

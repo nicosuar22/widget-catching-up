@@ -6,12 +6,20 @@ import com.example.widgetcatchingup.data.local.GoalLog
 import kotlinx.coroutines.flow.Flow
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 
 data class MonthlyStreakStats(
     val bestStreak: Int,
     val worstStreak: Int
+)
+
+data class SingleGoalMonthlyStats(
+    val completedDaysCount: Int,
+    val totalDaysInMonth: Int,
+    val percentage: Int,
+    val maxStreak: Int
 )
 
 class GoalRepository(private val goalDao: GoalDao) {
@@ -36,6 +44,11 @@ class GoalRepository(private val goalDao: GoalDao) {
         val startDate = weekDates.first().format(DateTimeFormatter.ISO_LOCAL_DATE)
         val endDate = weekDates.last().format(DateTimeFormatter.ISO_LOCAL_DATE)
         return goalDao.getLogsBetweenDatesDirect(startDate, endDate)
+    }
+
+    fun getLogsForGoalAndMonth(goalId: Long, yearMonth: YearMonth): Flow<List<GoalLog>> {
+        val monthPrefix = yearMonth.format(DateTimeFormatter.ofPattern("yyyy-MM"))
+        return goalDao.getLogsForGoalAndMonth(goalId, monthPrefix)
     }
 
     suspend fun toggleGoalLog(goalId: Long, date: LocalDate, currentState: Boolean) {
@@ -97,5 +110,36 @@ class GoalRepository(private val goalDao: GoalDao) {
         val worst = countsByGoal.values.minOrNull() ?: 0
 
         return MonthlyStreakStats(bestStreak = best, worstStreak = worst)
+    }
+
+    fun calculateSingleGoalStats(
+        yearMonth: YearMonth,
+        logs: List<GoalLog>
+    ): SingleGoalMonthlyStats {
+        val totalDays = yearMonth.lengthOfMonth()
+        val completedDays = logs.filter { it.isCompleted }.map { LocalDate.parse(it.date).dayOfMonth }.toSet()
+        val count = completedDays.size
+        val percentage = if (totalDays > 0) (count * 100) / totalDays else 0
+
+        // Calcular racha consecutiva máxima en el mes
+        var maxStreak = 0
+        var currentStreak = 0
+        for (day in 1..totalDays) {
+            if (completedDays.contains(day)) {
+                currentStreak++
+                if (currentStreak > maxStreak) {
+                    maxStreak = currentStreak
+                }
+            } else {
+                currentStreak = 0
+            }
+        }
+
+        return SingleGoalMonthlyStats(
+            completedDaysCount = count,
+            totalDaysInMonth = totalDays,
+            percentage = percentage,
+            maxStreak = maxStreak
+        )
     }
 }

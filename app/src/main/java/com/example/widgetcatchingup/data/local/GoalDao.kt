@@ -39,6 +39,9 @@ interface GoalDao {
     @Query("SELECT * FROM goal_logs WHERE date >= :startDate AND date <= :endDate")
     suspend fun getLogsBetweenDatesDirect(startDate: String, endDate: String): List<GoalLog>
 
+    @Query("SELECT * FROM goal_logs WHERE goalId = :goalId AND date LIKE :monthPrefix || '%'")
+    fun getLogsForGoalAndMonth(goalId: Long, monthPrefix: String): Flow<List<GoalLog>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateLog(log: GoalLog)
 
