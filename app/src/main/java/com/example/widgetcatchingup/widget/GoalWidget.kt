@@ -45,15 +45,20 @@ import java.time.format.DateTimeFormatter
 class GoalWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val db = AppDatabase.getDatabase(context)
-        val repository = GoalRepository(db.goalDao())
-
-        val (goals, logs, stats, weekDates) = withContext(Dispatchers.IO) {
-            val g = db.goalDao().getAllGoalsDirect()
-            val l = repository.getLogsForCurrentWeekDirect()
-            val s = repository.calculateMonthlyStreakStats()
-            val w = repository.getCurrentWeekDates()
-            Quadruple(g, l, s, w)
+        val (goals, logs, stats, weekDates) = try {
+            val db = AppDatabase.getDatabase(context)
+            val repository = GoalRepository(db.goalDao())
+            withContext(Dispatchers.IO) {
+                val g = db.goalDao().getAllGoalsDirect()
+                val l = repository.getLogsForCurrentWeekDirect()
+                val s = repository.calculateMonthlyStreakStats()
+                val w = repository.getCurrentWeekDates()
+                Quadruple(g, l, s, w)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            val fallbackRepo = GoalRepository(AppDatabase.getDatabase(context).goalDao())
+            Quadruple(emptyList(), emptyList(), MonthlyStreakStats("-", 0, "-", 0), fallbackRepo.getCurrentWeekDates())
         }
 
         provideContent {
@@ -293,7 +298,8 @@ private fun GoalCard(
                 text = "Racha Semanal",
                 style = TextStyle(
                     color = TextSecondary,
-                    fontSize = 11.sp
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Normal
                 ),
                 modifier = GlanceModifier.defaultWeight()
             )
