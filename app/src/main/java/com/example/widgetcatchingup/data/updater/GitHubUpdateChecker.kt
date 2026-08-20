@@ -28,8 +28,8 @@ object GitHubUpdateChecker {
             connection.requestMethod = "GET"
             connection.setRequestProperty("Accept", "application/vnd.github+json")
             connection.setRequestProperty("User-Agent", "WidgetCatchingUpApp")
-            connection.connectTimeout = 8000
-            connection.readTimeout = 8000
+            connection.connectTimeout = 5000
+            connection.readTimeout = 5000
 
             if (connection.responseCode == 200) {
                 val responseText = connection.inputStream.bufferedReader().use { it.readText() }
@@ -75,11 +75,11 @@ object GitHubUpdateChecker {
     }
 
     private fun isVersionNewer(latest: String, current: String): Boolean {
-        if (latest.isBlank()) return false
+        if (latest.isBlank() || current.isBlank()) return false
         val cleanLatest = latest.removePrefix("v").removePrefix("V").trim()
         val cleanCurrent = current.removePrefix("v").removePrefix("V").trim()
-        
-        if (cleanLatest == cleanCurrent) return false
+
+        if (cleanLatest.equals(cleanCurrent, ignoreCase = true)) return false
 
         try {
             val latestParts = cleanLatest.split(".").map { it.toIntOrNull() ?: 0 }
@@ -93,7 +93,7 @@ object GitHubUpdateChecker {
                 if (l < c) return false
             }
         } catch (e: Exception) {
-            return cleanLatest != cleanCurrent
+            return false
         }
 
         return false
